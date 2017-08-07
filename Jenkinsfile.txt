@@ -1,0 +1,71 @@
+pipeline {
+    agent any 
+	
+	environment { 
+        srs = '25830'
+		commitid = 'citymodeltestinganddeployment'
+		body = ''
+		citygml = ''	
+    }
+
+    stages {
+        stage('COMMIT STAGE') { 
+			environment { 
+                validateXML = ''
+				validateXSD = ''
+				validateGeometryFirstLast = ''
+				validateTwoConsecutiveNotEqual = ''
+				validateCodeType = ''
+				citygmlStadistics = ''
+            }
+            steps { 
+				script {
+					git url: 'https://github.com/Tecnalia-CityGML/CityGML-Deployment-Pipeline.git'
+					citygml = readFile('citymodeltestinganddeployment.xml')
+					body = changeCharacters(citygml)
+					body = "param1=" + body
+					
+					//Syntactic validation - Validate XML - TEST
+					echo 'Syntactic validation - Validate XML - TEST'
+					validateXML = performhttprequest('http://3dcity-test.tecnalia.com/TecnaliaTesting/rest/Servicios/CityGMLValidateXML',body)
+					
+					//Syntactic validation - Validate XSD - TEST
+					echo 'Syntactic validation - Validate XSD - TEST'
+					validateXSD = performhttprequest('http://3dcity-test.tecnalia.com/TecnaliaTesting/rest/Servicios/CityGMLValidateXSD',body)
+					
+				}
+            }
+        }
+    }
+}
+
+def performhttprequest(laUrl,elBody) {
+	def response = httpRequest consoleLogResponseBody: true, httpMode: 'POST', requestBody: elBody, url: laUrl, validResponseCodes: '100:399', passBuildParameters: false
+
+
+	//println('Status: '+response.status)
+	//println('Response: '+response.content)
+	checkiferror(response.content)
+	
+	return response.content
+}
+
+def checkiferror(texto) {
+    if(texto.contains('<ERROR>')) {
+		currentBuild.result = 'FAILURE'
+		throw err
+    }
+}
+
+def changeCharacters(citygml) {
+	citygml = citygml.replaceAll("\\:", "%3A");
+	citygml = citygml.replaceAll("\\/", "%2F");
+	citygml = citygml.replaceAll(" ", "%20");
+	citygml = citygml.replaceAll("\\|", "%7c");
+	citygml = citygml.replaceAll("\\<", "%3C");
+	citygml = citygml.replaceAll("\\?", "%3F");
+	citygml = citygml.replaceAll("\\>", "%3E");
+	citygml = citygml.replaceAll("\\=", "%3D");
+	citygml = citygml.replaceAll("\\'", "%27");
+	return citygml
+}
